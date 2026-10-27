@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="solarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="panelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Outer Solar Rays -->
+  <g stroke="url(#solarGrad)" stroke-width="24" stroke-linecap="round">
+    <line x1="256" y1="64" x2="256" y2="104" />
+    <line x1="256" y1="408" x2="256" y2="448" />
+    <line x1="64" y1="256" x2="104" y2="256" />
+    <line x1="408" y1="256" x2="448" y2="256" />
+    <line x1="120" y1="120" x2="148" y2="148" />
+    <line x1="364" y1="364" x2="392" y2="392" />
+    <line x1="120" y1="392" x2="148" y2="364" />
+    <line x1="364" y1="148" x2="392" y2="120" />
+  </g>
+
+  <!-- Solar Glowing Core -->
+  <circle cx="256" cy="256" r="100" fill="url(#solarGrad)" />
+
+  <!-- Solar Grid Cells Graphic -->
+  <path d="M 210 200 L 302 200 L 290 312 L 222 312 Z" fill="#0f172a" opacity="0.85" />
+  <line x1="256" y1="200" x2="256" y2="312" stroke="#f59e0b" stroke-width="4" />
+  <line x1="216" y1="256" x2="296" y2="256" stroke="#f59e0b" stroke-width="4" />
+</svg>

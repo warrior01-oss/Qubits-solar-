@@ -1,0 +1,6 @@
+{
+  "name": "Qubits Solar - Solar Panel Cleaning & Maintenance Bookings",
+  "description": "Professional solar panel cleaning services by Qubits Solar (a subsidiary under Qubits Consultancy). Instant quote calculator, online scheduling, efficiency restoration, and certified technicians.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
