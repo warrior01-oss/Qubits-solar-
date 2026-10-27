@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Bootstrapped Admin: User email from runtime (verma.sv4522@gmail.com) verified against email spoofing
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "verma.sv4522@gmail.com" && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation helper for UserProfile
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['userId', 'email'])
+        && data.userId is string && (data.userId == request.auth.uid || isAdmin())
+        && data.email is string && data.email.size() <= 150
+        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 150))
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && (!('address' in data) || (data.address is string && data.address.size() <= 500))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 100))
+        && (!('pincode' in data) || (data.pincode is string && data.pincode.size() <= 20))
+        && (!('systemCapacityKw' in data) || (data.systemCapacityKw is number && data.systemCapacityKw >= 0 && data.systemCapacityKw <= 100000))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    // Validation helper for Booking
+    function isValidBooking(data) {
+      return data.keys().hasAll(['id', 'userId', 'customerName', 'customerPhone', 'scheduledDate', 'status'])
+        && data.id is string && data.id.size() <= 64
+        && data.userId is string
+        && data.customerName is string && data.customerName.size() <= 150
+        && data.customerPhone is string && data.customerPhone.size() <= 30
+        && data.scheduledDate is string && data.scheduledDate.size() <= 30
+        && data.status is string && data.status.size() <= 30
+        && (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 150))
+        && (!('address' in data) || (data.address is string && data.address.size() <= 500))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 100))
+        && (!('pincode' in data) || (data.pincode is string && data.pincode.size() <= 20))
+        && (!('systemCapacityKw' in data) || (data.systemCapacityKw is number && data.systemCapacityKw >= 0))
+        && (!('panelCount' in data) || (data.panelCount is number && data.panelCount >= 0))
+        && (!('propertyType' in data) || (data.propertyType is string && data.propertyType.size() <= 50))
+        && (!('roofType' in data) || (data.roofType is string && data.roofType.size() <= 50))
+        && (!('packageId' in data) || (data.packageId is string && data.packageId.size() <= 50))
+        && (!('frequency' in data) || (data.frequency is string && data.frequency.size() <= 50))
+        && (!('timeSlot' in data) || (data.timeSlot is string && data.timeSlot.size() <= 50))
+        && (!('totalAmount' in data) || (data.totalAmount is number && data.totalAmount >= 0))
+        && (!('waterAvailability' in data) || (data.waterAvailability is string && data.waterAvailability.size() <= 50))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000))
+        && (!('technicianName' in data) || (data.technicianName is string && data.technicianName.size() <= 150))
+        && (!('technicianPhone' in data) || (data.technicianPhone is string && data.technicianPhone.size() <= 30))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Users Collection (PII Isolated)
+    match /users/{userId} {
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) && isValidUserProfile(incoming())
+        && incoming().userId == existing().userId;
+      allow delete: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+    }
+
+    // Bookings Collection
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && isValidId(bookingId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming())
+        && (existing().userId == request.auth.uid || isAdmin())
+        && incoming().id == existing().id;
+      allow delete: if isAdmin() && isValidId(bookingId);
+    }
+
+    // Heartbeat test doc
+    match /test/{docId} {
+      allow read: if true;
+    }
+  }
+}

@@ -1,5 +1,7 @@
 import { Booking, CustomerDetails, QuotePricing } from '../types/solar';
 import { COMPANY_DETAILS, getWhatsAppUrl } from './pricing';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { doc, setDoc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore';
 
 const STORAGE_KEY = 'qubits_solar_bookings_v1';
 
@@ -32,23 +34,270 @@ export function getStoredBookings(): Booking[] {
   }
 }
 
-export function saveBooking(booking: Booking): void {
+export function saveLocalBooking(booking: Booking): void {
   if (typeof window === 'undefined') return;
   try {
     const current = getStoredBookings();
     const updated = [booking, ...current.filter((b) => b.id !== booking.id)];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.error('Failed to save booking', e);
+    console.error('Failed to save booking locally', e);
   }
 }
 
-export function updateBookingStatus(
+/**
+ * Saves a booking to both LocalStorage and Cloud Firestore (if signed in)
+ */
+export async function saveBooking(booking: Booking): Promise<void> {
+  // Always save locally for instant offline availability
+  saveLocalBooking(booking);
+
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  const path = `bookings/${booking.id}`;
+  try {
+    const bookingDoc = {
+      id: booking.id,
+      userId: currentUser.uid,
+      customerName: booking.customer.fullName || 'Customer',
+      customerPhone: booking.customer.phone || '',
+      customerEmail: booking.customer.email || currentUser.email || '',
+      address: booking.customer.address || '',
+      city: booking.customer.city || '',
+      pincode: booking.customer.pincode || '',
+      systemCapacityKw: Number(booking.systemCapacityKw) || 0,
+      panelCount: Number(booking.panelCount) || 0,
+      propertyType: booking.propertyType || 'residential_rooftop',
+      roofType: booking.roofType || 'flat_concrete',
+      packageId: booking.packageId || 'standard_dm',
+      frequency: booking.frequency || 'one_time',
+      scheduledDate: booking.scheduledDate,
+      timeSlot: booking.timeSlot,
+      totalAmount: Number(booking.pricing.totalPerVisit) || 0,
+      status: booking.status || 'confirmed',
+      waterAvailability: booking.waterAvailability || 'rooftop_tap',
+      notes: booking.customer.accessNotes || '',
+      createdAt: booking.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, 'bookings', booking.id), bookingDoc);
+  } catch (error) {
+    console.warn('Could not sync booking to Firestore, saved locally:', error);
+  }
+}
+
+/**
+ * Loads cloud bookings for the signed-in user and merges them into local storage
+ */
+export async function fetchAndSyncCloudBookings(userId: string): Promise<Booking[]> {
+  const local = getStoredBookings();
+  if (!userId) return local;
+
+  const path = 'bookings';
+  try {
+    const q = query(collection(db, 'bookings'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    const cloudBookings: Booking[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const reconstructed: Booking = {
+        id: data.id || docSnap.id,
+        createdAt: data.createdAt || new Date().toISOString(),
+        status: data.status || 'confirmed',
+        propertyType: data.propertyType || 'residential_rooftop',
+        roofType: data.roofType || 'flat_concrete',
+        panelCount: data.panelCount || 10,
+        systemCapacityKw: data.systemCapacityKw || 5,
+        packageId: data.packageId || 'standard_dm',
+        frequency: data.frequency || 'one_time',
+        selectedAddonIds: [],
+        waterAvailability: data.waterAvailability || 'rooftop_tap',
+        scheduledDate: data.scheduledDate,
+        timeSlot: data.timeSlot,
+        customer: {
+          fullName: data.customerName,
+          phone: data.customerPhone,
+          email: data.customerEmail || '',
+          address: data.address || '',
+          city: data.city || 'Lucknow',
+          pincode: data.pincode || '',
+          accessNotes: data.notes || '',
+        },
+        pricing: {
+          panelCount: data.panelCount || 10,
+          systemCapacityKw: data.systemCapacityKw || 5,
+          baseRatePerPanel: 35,
+          rawBaseTotal: data.totalAmount || 1000,
+          minimumChargeApplied: false,
+          packageMultiplier: 1,
+          packageSubtotal: data.totalAmount || 1000,
+          frequencyDiscountPercent: 0,
+          frequencyDiscountAmount: 0,
+          frequencyVisitsPerYear: 1,
+          addonTotal: 0,
+          taxAmount: Math.round((data.totalAmount || 1000) * 0.18),
+          totalPerVisit: data.totalAmount || 1000,
+          annualEstimate: data.totalAmount || 1000,
+          estimatedUnitsRecoveredMonthly: Math.round((data.systemCapacityKw || 5) * 20),
+          estimatedMonthlySavingsInr: Math.round((data.systemCapacityKw || 5) * 140),
+        },
+      };
+      cloudBookings.push(reconstructed);
+    });
+
+    // Merge: union by id, prioritizing cloud bookings
+    const map = new Map<string, Booking>();
+    local.forEach((b) => map.set(b.id, b));
+    cloudBookings.forEach((b) => map.set(b.id, b));
+
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    return merged;
+  } catch (err) {
+    console.warn('Could not fetch cloud bookings:', err);
+    return local;
+  }
+}
+
+/**
+ * Loads ALL bookings across all customers for authorized Admin users from Cloud Firestore
+ */
+export async function fetchAllAdminBookings(): Promise<Booking[]> {
+  const local = getStoredBookings();
+  try {
+    const snapshot = await getDocs(collection(db, 'bookings'));
+    const cloudBookings: Booking[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const reconstructed: Booking = {
+        id: data.id || docSnap.id,
+        createdAt: data.createdAt || new Date().toISOString(),
+        status: data.status || 'confirmed',
+        propertyType: data.propertyType || 'residential_rooftop',
+        roofType: data.roofType || 'flat_concrete',
+        panelCount: data.panelCount || 10,
+        systemCapacityKw: data.systemCapacityKw || 5,
+        packageId: data.packageId || 'standard_dm',
+        frequency: data.frequency || 'one_time',
+        selectedAddonIds: [],
+        waterAvailability: data.waterAvailability || 'rooftop_tap',
+        scheduledDate: data.scheduledDate,
+        timeSlot: data.timeSlot,
+        customer: {
+          fullName: data.customerName,
+          phone: data.customerPhone,
+          email: data.customerEmail || '',
+          address: data.address || '',
+          city: data.city || 'Lucknow',
+          pincode: data.pincode || '',
+          accessNotes: data.notes || '',
+        },
+        assignedTechnician: data.technicianName
+          ? {
+              name: data.technicianName,
+              phone: data.technicianPhone || COMPANY_DETAILS.phone,
+              rating: 4.95,
+              teamLead: 'Certified Qubits Rigging Specialist',
+            }
+          : undefined,
+        pricing: {
+          panelCount: data.panelCount || 10,
+          systemCapacityKw: data.systemCapacityKw || 5,
+          baseRatePerPanel: 35,
+          rawBaseTotal: data.totalAmount || 1000,
+          minimumChargeApplied: false,
+          packageMultiplier: 1,
+          packageSubtotal: data.totalAmount || 1000,
+          frequencyDiscountPercent: 0,
+          frequencyDiscountAmount: 0,
+          frequencyVisitsPerYear: 1,
+          addonTotal: 0,
+          taxAmount: Math.round((data.totalAmount || 1000) * 0.18),
+          totalPerVisit: data.totalAmount || 1000,
+          annualEstimate: data.totalAmount || 1000,
+          estimatedUnitsRecoveredMonthly: Math.round((data.systemCapacityKw || 5) * 20),
+          estimatedMonthlySavingsInr: Math.round((data.systemCapacityKw || 5) * 140),
+        },
+      };
+      cloudBookings.push(reconstructed);
+    });
+
+    const map = new Map<string, Booking>();
+    local.forEach((b) => map.set(b.id, b));
+    cloudBookings.forEach((b) => map.set(b.id, b));
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch (err) {
+    console.warn('Could not fetch admin bookings:', err);
+    return local;
+  }
+}
+
+export async function adminUpdateBooking(
+  bookingId: string,
+  updates: {
+    status?: Booking['status'];
+    technicianName?: string;
+    technicianPhone?: string;
+    notes?: string;
+  }
+): Promise<void> {
+  const current = getStoredBookings();
+  const index = current.findIndex((b) => b.id === bookingId);
+  if (index !== -1) {
+    current[index] = {
+      ...current[index],
+      ...(updates.status ? { status: updates.status } : {}),
+      ...(updates.technicianName
+        ? {
+            assignedTechnician: {
+              name: updates.technicianName,
+              phone: updates.technicianPhone || COMPANY_DETAILS.phone,
+              rating: 4.9,
+              teamLead: 'Qubits Field Lead',
+            },
+          }
+        : {}),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  }
+
+  try {
+    const ref = doc(db, 'bookings', bookingId);
+    await updateDoc(ref, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Failed to update booking in Firestore:', err);
+  }
+}
+
+export async function adminDeleteBooking(bookingId: string): Promise<void> {
+  const current = getStoredBookings().filter((b) => b.id !== bookingId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, 'bookings', bookingId));
+  } catch (err) {
+    console.error('Failed to delete booking in Firestore:', err);
+  }
+}
+
+export async function updateBookingStatus(
   bookingId: string,
   newStatus: Booking['status'],
   additionalNotes?: string
-): Booking | null {
-  if (typeof window === 'undefined') return null;
+): Promise<Booking | null> {
   const current = getStoredBookings();
   const index = current.findIndex((b) => b.id === bookingId);
   if (index === -1) return null;
@@ -67,15 +316,29 @@ export function updateBookingStatus(
 
   current[index] = updatedBooking;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+
+  // Update in Firestore if signed in
+  if (auth.currentUser) {
+    try {
+      const ref = doc(db, 'bookings', bookingId);
+      await updateDoc(ref, {
+        status: newStatus,
+        notes: updatedBooking.customer.accessNotes || '',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('Firestore update status failed:', err);
+    }
+  }
+
   return updatedBooking;
 }
 
-export function rescheduleBooking(
+export async function rescheduleBooking(
   bookingId: string,
   newDate: string,
   newTimeSlot: string
-): Booking | null {
-  if (typeof window === 'undefined') return null;
+): Promise<Booking | null> {
   const current = getStoredBookings();
   const index = current.findIndex((b) => b.id === bookingId);
   if (index === -1) return null;
@@ -89,6 +352,21 @@ export function rescheduleBooking(
 
   current[index] = updatedBooking;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+
+  if (auth.currentUser) {
+    try {
+      const ref = doc(db, 'bookings', bookingId);
+      await updateDoc(ref, {
+        scheduledDate: newDate,
+        timeSlot: newTimeSlot,
+        status: 'rescheduled',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('Firestore reschedule failed:', err);
+    }
+  }
+
   return updatedBooking;
 }
 
@@ -105,9 +383,6 @@ export function formatInr(amount: number): string {
   return `₹${formatted}`;
 }
 
-/**
- * Creates a pre-filled direct WhatsApp message link to 9250707712
- */
 export function buildWhatsAppLink(booking: Booking): string {
   const text = `*New Booking Request - Qubits Solar*
 ${COMPANY_DETAILS.subsidiaryText}

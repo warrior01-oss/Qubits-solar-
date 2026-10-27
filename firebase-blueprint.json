@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with contact information and preferences",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The Firebase Auth UID of the user"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "email": {
+          "type": "string",
+          "description": "User primary email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Primary contact number"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Google profile photo URL"
+        },
+        "address": {
+          "type": "string",
+          "description": "Default solar installation address"
+        },
+        "city": {
+          "type": "string",
+          "description": "City of residence"
+        },
+        "pincode": {
+          "type": "string",
+          "description": "Pin code of location"
+        },
+        "systemCapacityKw": {
+          "type": "number",
+          "description": "Default solar plant capacity in kW"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of account creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of profile update"
+        }
+      },
+      "required": ["userId", "email"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Solar panel cleaning booking request",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique booking reference ID (e.g. QS-2026-1234)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of customer who created this booking"
+        },
+        "customerEmail": {
+          "type": "string",
+          "description": "Contact email of customer"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Customer full name"
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Customer mobile phone number"
+        },
+        "address": {
+          "type": "string",
+          "description": "Installation street address"
+        },
+        "city": {
+          "type": "string",
+          "description": "City"
+        },
+        "pincode": {
+          "type": "string",
+          "description": "Pincode"
+        },
+        "systemCapacityKw": {
+          "type": "number",
+          "description": "System capacity in kW"
+        },
+        "panelCount": {
+          "type": "number",
+          "description": "Number of solar panels"
+        },
+        "propertyType": {
+          "type": "string",
+          "description": "Type of property"
+        },
+        "roofType": {
+          "type": "string",
+          "description": "Roof material type"
+        },
+        "packageId": {
+          "type": "string",
+          "description": "Selected cleaning package"
+        },
+        "frequency": {
+          "type": "string",
+          "description": "Selected service frequency"
+        },
+        "scheduledDate": {
+          "type": "string",
+          "description": "Date of appointment (YYYY-MM-DD)"
+        },
+        "timeSlot": {
+          "type": "string",
+          "description": "Appointment time window"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total price estimate per visit"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the booking"
+        },
+        "waterAvailability": {
+          "type": "string",
+          "description": "Water source at site"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Special access or rooftop instructions"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["id", "userId", "customerName", "customerPhone", "scheduledDate", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile document indexed by Firebase Auth UID"
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Bookings document where access is owned by matching userId"
+    }
+  }
+}

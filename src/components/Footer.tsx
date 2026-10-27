@@ -1,9 +1,9 @@
 import React from 'react';
-import { Phone, Mail, Globe, ExternalLink, Download } from 'lucide-react';
+import { Phone, Mail, Globe, ExternalLink, Download, ShieldCheck } from 'lucide-react';
 import { COMPANY_DETAILS } from '../utils/pricing';
 
 interface FooterProps {
-  onNavigate: (tab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact') => void;
+  onNavigate: (tab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact' | 'admin') => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
@@ -97,6 +97,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   <Download className="w-3 h-3" />
                   <span>Download Android .APK</span>
                 </a>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('admin')}
+                  className="text-slate-500 hover:text-amber-700 transition-colors text-left flex items-center gap-1 text-[11px] pt-1"
+                >
+                  <ShieldCheck className="w-3 h-3 text-amber-500" />
+                  <span>Staff / Admin Portal</span>
+                </button>
               </li>
             </ul>
           </div>

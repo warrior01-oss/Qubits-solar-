@@ -7,6 +7,7 @@ import { MyBookingsView } from './components/MyBookingsView';
 import { ServicesShowcase } from './components/ServicesShowcase';
 import { PricingTable } from './components/PricingTable';
 import { ContactSection } from './components/ContactSection';
+import { AdminDashboard } from './components/AdminDashboard';
 import { Footer } from './components/Footer';
 import { Booking } from './types/solar';
 import { getStoredBookings } from './utils/storage';
@@ -17,7 +18,7 @@ import { InstallAPKModal } from './components/InstallAPKModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<
-    'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact'
+    'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact' | 'admin'
   >('book');
 
   const [prefilledCapacityKw, setPrefilledCapacityKw] = useState<number>(5);
@@ -34,7 +35,7 @@ export default function App() {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam && ['book', 'calculator', 'bookings', 'services', 'pricing', 'contact'].includes(tabParam)) {
+      if (tabParam && ['book', 'calculator', 'bookings', 'services', 'pricing', 'contact', 'admin'].includes(tabParam)) {
         setActiveTab(tabParam as any);
       }
       if (params.get('apk') || params.get('install') || params.get('download')) {
@@ -177,6 +178,11 @@ export default function App() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
+          )}
+
+          {/* TAB 7: Operations Command Center (Admin Dashboard) */}
+          {activeTab === 'admin' && (
+            <AdminDashboard />
           )}
         </div>
       </main>

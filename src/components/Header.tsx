@@ -1,15 +1,18 @@
 import React from 'react';
-import { Phone, Mail, ExternalLink, Calendar, Calculator, Sparkles, Download, MessageSquare } from 'lucide-react';
+import { Phone, Mail, ExternalLink, Calendar, Calculator, Sparkles, Download, MessageSquare, ShieldCheck } from 'lucide-react';
 import { COMPANY_DETAILS, getWhatsAppUrl } from '../utils/pricing';
 import { PWAInstallButton } from './PWAInstallButton';
+import { GoogleAuthButton } from './GoogleAuthButton';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
-  activeTab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact';
-  setActiveTab: (tab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact') => void;
+  activeTab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact' | 'admin';
+  setActiveTab: (tab: 'book' | 'calculator' | 'bookings' | 'services' | 'pricing' | 'contact' | 'admin') => void;
   bookingsCount: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, bookingsCount }) => {
+  const { isAdmin } = useAuth();
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
       {/* Top Utility Bar - Light & Professional */}
@@ -171,6 +174,30 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, booking
         <div className="flex items-center gap-2 sm:gap-3">
           <PWAInstallButton variant="header" />
 
+          {/* Admin Operations Command Center Button */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('admin')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all border ${
+                activeTab === 'admin'
+                  ? 'bg-slate-900 text-amber-400 border-slate-900 shadow-sm ring-2 ring-amber-400/20'
+                  : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-xs'
+              }`}
+              title="Qubits Solar Operations Command Center"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Admin Ops</span>
+            </button>
+          )}
+
+          {/* Google Sign-In & Customer Account */}
+          <GoogleAuthButton
+            variant="header"
+            onNavigateToBookings={() => setActiveTab('bookings')}
+            onNavigateToAdmin={() => setActiveTab('admin')}
+          />
+
           {/* My Bookings Tracker */}
           <button
             onClick={() => setActiveTab('bookings')}
@@ -215,6 +242,19 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, booking
 
       {/* Mobile Sub-Navigation Bar */}
       <div className="lg:hidden border-t border-slate-200 bg-slate-50/90 px-4 py-2 overflow-x-auto flex items-center gap-2 text-xs">
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`whitespace-nowrap px-3 py-1.5 rounded-lg transition-all font-bold flex items-center gap-1 ${
+              activeTab === 'admin'
+                ? 'bg-slate-900 text-amber-400 shadow-xs'
+                : 'text-amber-900 bg-amber-50 border border-amber-300'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+            <span>Admin Ops</span>
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('book')}
           className={`whitespace-nowrap px-3 py-1.5 rounded-lg transition-all font-semibold ${

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Clock,
@@ -25,39 +25,64 @@ import {
   getStoredBookings,
   rescheduleBooking,
   updateBookingStatus,
+  fetchAndSyncCloudBookings,
 } from '../utils/storage';
+import { useAuth } from '../context/AuthContext';
+import { GoogleAuthButton } from './GoogleAuthButton';
 
 interface MyBookingsViewProps {
   onNewBookingClick: () => void;
 }
 
 export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClick }) => {
+  const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>(() => getStoredBookings());
+  const [syncing, setSyncing] = useState<boolean>(false);
   const [selectedBookingForReschedule, setSelectedBookingForReschedule] = useState<Booking | null>(null);
   const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
   const [viewReceiptBooking, setViewReceiptBooking] = useState<Booking | null>(null);
+
+  // Sync with Firestore whenever user signs in or changes
+  useEffect(() => {
+    if (user) {
+      setSyncing(true);
+      fetchAndSyncCloudBookings(user.uid)
+        .then((merged) => setBookings(merged))
+        .catch((e) => console.warn('Could not sync cloud bookings:', e))
+        .finally(() => setSyncing(false));
+    } else {
+      setBookings(getStoredBookings());
+    }
+  }, [user]);
 
   // Reschedule form state
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const [newDate, setNewDate] = useState<string>(tomorrow);
   const [newSlot, setNewSlot] = useState<string>('07:30 AM - 10:30 AM (Morning Peak Cool)');
 
-  const refreshList = () => {
-    setBookings(getStoredBookings());
+  const refreshList = async () => {
+    if (user) {
+      setSyncing(true);
+      const synced = await fetchAndSyncCloudBookings(user.uid);
+      setBookings(synced);
+      setSyncing(false);
+    } else {
+      setBookings(getStoredBookings());
+    }
   };
 
-  const handleConfirmReschedule = () => {
+  const handleConfirmReschedule = async () => {
     if (!selectedBookingForReschedule) return;
-    rescheduleBooking(selectedBookingForReschedule.id, newDate, newSlot);
+    await rescheduleBooking(selectedBookingForReschedule.id, newDate, newSlot);
     setSelectedBookingForReschedule(null);
-    refreshList();
+    await refreshList();
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     if (!selectedBookingForCancel) return;
-    updateBookingStatus(selectedBookingForCancel.id, 'cancelled', 'Cancelled by customer via portal.');
+    await updateBookingStatus(selectedBookingForCancel.id, 'cancelled', 'Cancelled by customer via portal.');
     setSelectedBookingForCancel(null);
-    refreshList();
+    await refreshList();
   };
 
   const getStatusBadge = (status: BookingStatus) => {
@@ -126,6 +151,35 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
           + Book New Cleaning
         </button>
       </div>
+
+      {/* Google Sign-in Sync Status Banner */}
+      {user ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs">
+          <div className="flex items-center gap-2 text-emerald-900 font-medium">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>
+              Connected as <strong className="font-bold">{user.displayName || user.email}</strong>. Bookings are backed up to Google Cloud.
+            </span>
+          </div>
+          {syncing && (
+            <span className="text-[11px] text-emerald-700 animate-pulse font-semibold">
+              Syncing latest orders...
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+          <div className="space-y-0.5">
+            <p className="text-xs sm:text-sm font-bold text-blue-900">
+              Want to access bookings from your phone or another computer?
+            </p>
+            <p className="text-xs text-blue-700">
+              Sign in with your Google account to automatically link and synchronize all your solar service orders.
+            </p>
+          </div>
+          <GoogleAuthButton variant="wizard" />
+        </div>
+      )}
 
       {/* Bookings List */}
       {bookings.length === 0 ? (
