@@ -23,6 +23,7 @@ import {
   Check,
   ChevronRight,
   Layers,
+  RefreshCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -103,6 +104,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
   const [showSignInModal, setShowSignInModal] = useState<boolean>(false);
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState<boolean>(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Auto-fill customer details when signed in with Google
   React.useEffect(() => {
@@ -168,7 +171,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmitBooking = () => {
+  const handleSubmitBooking = async () => {
     if (!validateForm()) return;
 
     // MANDATORY PROPER SIGN-IN REQUIREMENT
@@ -176,6 +179,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       setShowSignInModal(true);
       return;
     }
+
+    setIsSubmittingBooking(true);
+    setSubmissionError(null);
 
     const newBooking: Booking = {
       id: generateBookingId(),
@@ -204,21 +210,35 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       },
     };
 
-    saveBooking(newBooking);
-    setCompletedBooking(newBooking);
-    onBookingCompleted(newBooking);
-    setCurrentStep(5);
-
-    // Trigger celebration confetti
     try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#0B4F9C', '#F58220', '#10B981', '#FFB800'],
-      });
-    } catch {
-      // ignore
+      const result = await saveBooking(newBooking);
+      if (!result.success) {
+        setSubmissionError(
+          result.error || 'Failed to save booking to Cloud Firestore database. Please retry.'
+        );
+        setIsSubmittingBooking(false);
+        return;
+      }
+
+      setCompletedBooking(newBooking);
+      onBookingCompleted(newBooking);
+      setCurrentStep(5);
+
+      // Trigger celebration confetti
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#0B4F9C', '#F58220', '#10B981', '#FFB800'],
+        });
+      } catch {
+        // ignore
+      }
+    } catch (err: any) {
+      setSubmissionError(err?.message || 'Server error while saving booking.');
+    } finally {
+      setIsSubmittingBooking(false);
     }
   };
 
@@ -579,8 +599,57 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="pt-2">
+            {/* Submit Button & Cloud Sync Feedback */}
+            <div className="pt-2 space-y-3">
+              {submissionError && (
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 font-bold text-rose-900">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Cloud Database Sync Failed</span>
+                  </div>
+                  <p className="text-rose-700 leading-relaxed">{submissionError}</p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSubmitBooking}
+                      disabled={isSubmittingBooking}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingBooking ? 'animate-spin' : ''}`} />
+                      <span>Retry Cloud Save</span>
+                    </button>
+                    <a
+                      href={buildWhatsAppLink({
+                        id: 'QS-DIRECT',
+                        createdAt: new Date().toISOString(),
+                        status: 'confirmed',
+                        propertyType,
+                        roofType,
+                        panelCount,
+                        systemCapacityKw: quote.systemCapacityKw,
+                        packageId,
+                        frequency,
+                        selectedAddonIds,
+                        waterAvailability,
+                        scheduledDate,
+                        timeSlot,
+                        customer: {
+                          ...customer,
+                          email: customer.email || user?.email || '',
+                        },
+                        pricing: quote,
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Dispatch via WhatsApp Directly</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
               {!user ? (
                 <button
                   type="button"
@@ -599,6 +668,15 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                   <span>Sign In with Google to Complete Booking</span>
                   <ArrowRight className="w-5 h-5" />
                 </button>
+              ) : isSubmittingBooking ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-4 px-6 rounded-2xl bg-orange-400 text-white font-black text-base flex items-center justify-center gap-2.5 shadow-md cursor-wait opacity-90"
+                >
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Verifying & Saving to Cloud Firestore...</span>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -613,7 +691,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               <p className="text-center text-[11px] text-slate-500 mt-2">
                 {!user
                   ? '🔒 Mandatory verified Google sign-in ensures confirmed booking allocation & direct technician dispatch.'
-                  : `Signed in as ${user.displayName || user.email}. Instant confirmation sent to WhatsApp & backed up to Cloud.`}
+                  : `Signed in as ${user.displayName || user.email}. Orders are synced live to Cloud Firestore & WhatsApp.`}
               </p>
             </div>
           </div>
@@ -994,8 +1072,27 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                 </div>
               </div>
 
+              {submissionError && (
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-rose-900">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Cloud Database Sync Failed</span>
+                  </div>
+                  <p className="text-rose-700">{submissionError}</p>
+                  <button
+                    type="button"
+                    onClick={handleSubmitBooking}
+                    disabled={isSubmittingBooking}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingBooking ? 'animate-spin' : ''}`} />
+                    <span>Retry Saving</span>
+                  </button>
+                </div>
+              )}
+
               {/* Price summary highlight */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs text-slate-600">Total Payable ({quote.systemCapacityKw} kW):</div>
                   <div className="text-2xl font-black text-blue-900">{formatInr(quote.totalPerVisit)}</div>
@@ -1011,6 +1108,15 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                   >
                     <span>Sign In to Confirm Booking</span>
                     <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : isSubmittingBooking ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-3.5 bg-orange-400 text-white font-black text-sm rounded-xl shadow-xs flex items-center gap-2 cursor-wait opacity-90"
+                  >
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Saving to Database...</span>
                   </button>
                 ) : (
                   <button

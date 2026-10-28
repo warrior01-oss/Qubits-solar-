@@ -1,15 +1,19 @@
 {
   "name": "Qubits Solar - Solar Cleaning Bookings",
   "short_name": "Qubits Solar",
-  "description": "Professional solar panel cleaning services by Qubits Solar (a subsidiary under Qubits Consultancy).",
+  "description": "Professional solar panel cleaning services by Qubits Solar (a subsidiary under Qubits Consultancy). Instant quote calculator, online scheduling, and certified technicians.",
   "start_url": "/",
+  "scope": "/",
+  "id": "com.qubitssolar.app",
   "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait",
   "background_color": "#FFFFFF",
   "theme_color": "#0B4F9C",
   "lang": "en",
-  "scope": "/",
-  "id": "/",
-  "orientation": "portrait",
+  "dir": "ltr",
+  "categories": ["business", "utilities", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/pwa-192x192.png",
@@ -28,6 +32,39 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Qubits Solar Booking & Calculator Screen"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Qubits Solar Operations Command Portal"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Book Cleaning",
+      "url": "/?tab=book",
+      "description": "Schedule a new solar wash appointment"
+    },
+    {
+      "name": "Loss Calculator",
+      "url": "/?tab=calculator",
+      "description": "Calculate yield recovery and ROI"
+    },
+    {
+      "name": "My Orders",
+      "url": "/?tab=bookings",
+      "description": "Track active cleaning bookings"
     }
   ]
 }

@@ -7,24 +7,25 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
-    base: './',
+    base: '/',
     plugins: [
       react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'manifest.json'],
         manifest: {
-          id: '/',
+          id: 'com.qubitssolar.app',
           name: 'Qubits Solar - Solar Cleaning Bookings',
           short_name: 'Qubits Solar',
-          description: 'Professional solar panel cleaning services by Qubits Solar (a subsidiary under Qubits Consultancy).',
+          description: 'Professional solar panel cleaning services by Qubits Solar (a subsidiary under Qubits Consultancy). Instant quote calculator, online scheduling, and certified technicians.',
           theme_color: '#0B4F9C',
           background_color: '#FFFFFF',
           display: 'standalone',
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
+          categories: ['business', 'utilities', 'productivity'],
           icons: [
             {
               src: '/pwa-192x192.png',
@@ -43,6 +44,22 @@ export default defineConfig(() => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
+            },
+          ],
+          screenshots: [
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Qubits Solar Booking & Calculator Screen',
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'Qubits Solar Operations Command Portal',
             },
           ],
         },

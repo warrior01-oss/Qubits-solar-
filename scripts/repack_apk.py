@@ -198,54 +198,23 @@ def repack():
         shutil.copy2(unaligned_apk, aligned_apk)
     print(f"Ready APK: {os.path.getsize(aligned_apk)} bytes")
 
-    print("=== Step 8: Signing with apksigner ===")
-    keystore = "/tmp/release.keystore"
-    keytool_bin = shutil.which("keytool")
-    if keytool_bin and not os.path.exists(keystore):
-        print("Generating new release keystore...")
-        try:
-            subprocess.run([
-                keytool_bin, "-genkeypair", "-v",
-                "-keystore", keystore,
-                "-alias", "qubits-solar",
-                "-keyalg", "RSA",
-                "-keysize", "2048",
-                "-validity", "10000",
-                "-storepass", "qubits123",
-                "-keypass", "qubits123",
-                "-dname", "CN=Qubits Solar, O=Qubits Consultancy, C=IN"
-            ], check=True, capture_output=True)
-            print("Keystore generated at", keystore)
-        except Exception as e:
-            print("Keystore generation error:", e)
+    print("=== Step 8: Signing with apk_sign_ts (v1 + v2 + v3 schemes) ===")
+    sign_res = subprocess.run([
+        "node", "scripts/sign_apk.js",
+        unaligned_apk,
+        "public/qubits-solar.apk"
+    ], capture_output=True, text=True)
 
-    apksigner_bin = shutil.which("apksigner")
-    if apksigner_bin:
-        res = subprocess.run([
-            apksigner_bin, "sign",
-            "--ks", keystore,
-            "--ks-key-alias", "qubits-solar",
-            "--ks-pass", "pass:qubits123",
-            "--key-pass", "pass:qubits123",
-            "--v1-signing-enabled", "true",
-            "--v2-signing-enabled", "true",
-            "--v3-signing-enabled", "true",
-            aligned_apk
-        ], capture_output=True, text=True)
-        if res.returncode != 0:
-            print("apksigner stderr:", res.stderr)
-        else:
-            print("=== Step 9: Verifying signature ===")
-            ver = subprocess.run([apksigner_bin, "verify", "-v", aligned_apk], capture_output=True, text=True)
-            print("Verification result:\n", ver.stdout)
-    else:
-        print("apksigner not found, using packed bundle...")
+    print(sign_res.stdout)
+    if sign_res.returncode != 0:
+        print("sign_apk.js error:", sign_res.stderr)
+        raise RuntimeError("Failed to sign APK")
 
-    print("=== Step 10: Copying final signed APK ===")
-    shutil.copy2(aligned_apk, "public/qubits-solar.apk")
-    shutil.copy2(aligned_apk, "dist/qubits-solar.apk")
+    if os.path.exists("dist"):
+        shutil.copy2("public/qubits-solar.apk", "dist/qubits-solar.apk")
+
     final_size = os.path.getsize("public/qubits-solar.apk")
-    print(f"SUCCESS! Signed APK installed to public/qubits-solar.apk ({final_size} bytes)")
+    print(f"SUCCESS! Fully verified & signed APK installed to public/qubits-solar.apk ({final_size} bytes)")
 
 if __name__ == "__main__":
     repack()

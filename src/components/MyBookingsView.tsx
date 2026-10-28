@@ -41,6 +41,8 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
   const [selectedBookingForReschedule, setSelectedBookingForReschedule] = useState<Booking | null>(null);
   const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<Booking | null>(null);
   const [viewReceiptBooking, setViewReceiptBooking] = useState<Booking | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   // Sync with Firestore whenever user signs in or changes
   useEffect(() => {
@@ -73,14 +75,28 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
 
   const handleConfirmReschedule = async () => {
     if (!selectedBookingForReschedule) return;
-    await rescheduleBooking(selectedBookingForReschedule.id, newDate, newSlot);
+    setActionError(null);
+    setActionLoading(true);
+    const result = await rescheduleBooking(selectedBookingForReschedule.id, newDate, newSlot);
+    setActionLoading(false);
+    if (!result.success && result.error) {
+      setActionError(result.error);
+      return;
+    }
     setSelectedBookingForReschedule(null);
     await refreshList();
   };
 
   const handleConfirmCancel = async () => {
     if (!selectedBookingForCancel) return;
-    await updateBookingStatus(selectedBookingForCancel.id, 'cancelled', 'Cancelled by customer via portal.');
+    setActionError(null);
+    setActionLoading(true);
+    const result = await updateBookingStatus(selectedBookingForCancel.id, 'cancelled', 'Cancelled by customer via portal.');
+    setActionLoading(false);
+    if (!result.success && result.error) {
+      setActionError(result.error);
+      return;
+    }
     setSelectedBookingForCancel(null);
     await refreshList();
   };
@@ -339,6 +355,12 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
               </button>
             </div>
 
+            {actionError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                <strong>Sync Error:</strong> {actionError}
+              </div>
+            )}
+
             <div className="space-y-4 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Select New Date</label>
@@ -376,10 +398,12 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={handleConfirmReschedule}
-                className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5"
               >
-                Confirm Reschedule
+                {actionLoading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                <span>{actionLoading ? 'Updating Cloud...' : 'Confirm Reschedule'}</span>
               </button>
             </div>
           </div>
@@ -394,6 +418,13 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
             <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to cancel this solar cleaning appointment? You can re-book anytime in 60 seconds.
             </p>
+
+            {actionError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                <strong>Sync Error:</strong> {actionError}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -404,10 +435,12 @@ export const MyBookingsView: React.FC<MyBookingsViewProps> = ({ onNewBookingClic
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={handleConfirmCancel}
-                className="px-5 py-2 bg-red-600 text-white rounded-xl font-bold text-xs"
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5"
               >
-                Yes, Cancel
+                {actionLoading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                <span>{actionLoading ? 'Cancelling...' : 'Yes, Cancel'}</span>
               </button>
             </div>
           </div>

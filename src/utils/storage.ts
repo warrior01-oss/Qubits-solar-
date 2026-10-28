@@ -45,15 +45,28 @@ export function saveLocalBooking(booking: Booking): void {
   }
 }
 
+export interface SaveBookingResult {
+  success: boolean;
+  cloudSynced: boolean;
+  error?: string;
+}
+
 /**
- * Saves a booking to both LocalStorage and Cloud Firestore (if signed in)
+ * Saves a booking to both LocalStorage and Cloud Firestore (if signed in).
+ * Returns clear cloud sync outcome so failure is never silent.
  */
-export async function saveBooking(booking: Booking): Promise<void> {
-  // Always save locally for instant offline availability
+export async function saveBooking(booking: Booking): Promise<SaveBookingResult> {
+  // Always save locally so data is cached on device
   saveLocalBooking(booking);
 
   const currentUser = auth.currentUser;
-  if (!currentUser) return;
+  if (!currentUser) {
+    return {
+      success: true,
+      cloudSynced: false,
+      error: 'Not signed in with a Google account. Booking saved locally only.',
+    };
+  }
 
   const path = `bookings/${booking.id}`;
   try {
@@ -75,7 +88,7 @@ export async function saveBooking(booking: Booking): Promise<void> {
       scheduledDate: booking.scheduledDate,
       timeSlot: booking.timeSlot,
       totalAmount: Number(booking.pricing.totalPerVisit) || 0,
-      status: booking.status || 'confirmed',
+      status: 'confirmed',
       waterAvailability: booking.waterAvailability || 'rooftop_tap',
       notes: booking.customer.accessNotes || '',
       createdAt: booking.createdAt || new Date().toISOString(),
@@ -83,8 +96,11 @@ export async function saveBooking(booking: Booking): Promise<void> {
     };
 
     await setDoc(doc(db, 'bookings', booking.id), bookingDoc);
-  } catch (error) {
-    console.warn('Could not sync booking to Firestore, saved locally:', error);
+    return { success: true, cloudSynced: true };
+  } catch (error: any) {
+    console.error('Failed to sync booking to Cloud Firestore:', error);
+    const msg = error?.message || 'Database connection error. Could not reach operations server.';
+    return { success: false, cloudSynced: false, error: msg };
   }
 }
 
@@ -297,10 +313,10 @@ export async function updateBookingStatus(
   bookingId: string,
   newStatus: Booking['status'],
   additionalNotes?: string
-): Promise<Booking | null> {
+): Promise<{ success: boolean; booking: Booking | null; error?: string }> {
   const current = getStoredBookings();
   const index = current.findIndex((b) => b.id === bookingId);
-  if (index === -1) return null;
+  if (index === -1) return { success: false, booking: null, error: 'Booking not found' };
 
   const target = current[index];
   const updatedBooking: Booking = {
@@ -326,22 +342,28 @@ export async function updateBookingStatus(
         notes: updatedBooking.customer.accessNotes || '',
         updatedAt: new Date().toISOString(),
       });
-    } catch (err) {
-      console.warn('Firestore update status failed:', err);
+      return { success: true, booking: updatedBooking };
+    } catch (err: any) {
+      console.error('Firestore update status failed:', err);
+      return {
+        success: false,
+        booking: updatedBooking,
+        error: err?.message || 'Failed to update status in cloud database.',
+      };
     }
   }
 
-  return updatedBooking;
+  return { success: true, booking: updatedBooking };
 }
 
 export async function rescheduleBooking(
   bookingId: string,
   newDate: string,
   newTimeSlot: string
-): Promise<Booking | null> {
+): Promise<{ success: boolean; booking: Booking | null; error?: string }> {
   const current = getStoredBookings();
   const index = current.findIndex((b) => b.id === bookingId);
-  if (index === -1) return null;
+  if (index === -1) return { success: false, booking: null, error: 'Booking not found' };
 
   const updatedBooking: Booking = {
     ...current[index],
@@ -362,12 +384,18 @@ export async function rescheduleBooking(
         status: 'rescheduled',
         updatedAt: new Date().toISOString(),
       });
-    } catch (err) {
-      console.warn('Firestore reschedule failed:', err);
+      return { success: true, booking: updatedBooking };
+    } catch (err: any) {
+      console.error('Firestore reschedule failed:', err);
+      return {
+        success: false,
+        booking: updatedBooking,
+        error: err?.message || 'Failed to update schedule in cloud database.',
+      };
     }
   }
 
-  return updatedBooking;
+  return { success: true, booking: updatedBooking };
 }
 
 export function generateBookingId(): string {

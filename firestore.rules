@@ -97,14 +97,53 @@ service cloud.firestore {
       allow delete: if (isOwner(userId) || isAdmin()) && isValidId(userId);
     }
 
-    // Bookings Collection
+    // Bookings Collection with Action-Based Permissions and Terminal State Protection
     match /bookings/{bookingId} {
       allow get: if isSignedIn() && isValidId(bookingId) && (existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming()) && incoming().userId == request.auth.uid;
-      allow update: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming())
-        && (existing().userId == request.auth.uid || isAdmin())
-        && incoming().id == existing().id;
+
+      // Create: user must own the record, status must be confirmed, and cannot set technician
+      allow create: if isSignedIn()
+        && isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'confirmed'
+        && (!('technicianName' in incoming()));
+
+      // Update: Tier 1 (Admin full update) vs Tier 2 (Customer constrained to reschedule or cancel only)
+      allow update: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming()) && (
+        // Admin: can update booking fields (status, technician, notes), preserving immutable identity
+        (
+          isAdmin() &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt
+        ) ||
+
+        // Customer: strictly limited to Reschedule or Cancel, cannot modify price, package, capacity, or technician
+        (
+          existing().userId == request.auth.uid &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          existing().status != 'completed' &&
+          (
+            // Action A: Reschedule (only scheduledDate, timeSlot, status: 'rescheduled', and updatedAt)
+            (
+              existing().status != 'cancelled' &&
+              incoming().status == 'rescheduled' &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['scheduledDate', 'timeSlot', 'status', 'updatedAt'])
+            ) ||
+            // Action B: Cancel (only status: 'cancelled', notes, and updatedAt)
+            (
+              incoming().status == 'cancelled' &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt'])
+            )
+          )
+        )
+      );
+
+      // Only administrators can delete booking records
       allow delete: if isAdmin() && isValidId(bookingId);
     }
 
