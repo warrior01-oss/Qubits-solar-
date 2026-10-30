@@ -72,7 +72,7 @@ export const InstallAPKModal: React.FC<InstallAPKModalProps> = ({ isOpen, onClos
           </div>
           <div className="flex items-center gap-3">
             <img
-              src="/logo-qubits-solar.png"
+              src={COMPANY_DETAILS.logoSolar}
               alt="Qubits Solar Logo"
               className="w-10 h-10 object-contain rounded-xl bg-slate-50 p-1 border border-slate-200"
             />

@@ -6,3 +6,20 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Security: Never commit or archive private keys, certificates, or keystores
+*.pem
+*.key
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.der
+*.cer
+*.crt
+scripts/*.pem
+scripts/*.key
+scripts/*.keystore
+scripts/*.jks
+qubits-release*
+

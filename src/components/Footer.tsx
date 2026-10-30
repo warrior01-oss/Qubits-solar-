@@ -90,6 +90,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <a
+                  href="/qubits-solar-dist.zip"
+                  download="qubits-solar-dist.zip"
+                  className="text-emerald-700 hover:text-emerald-800 font-bold transition-colors text-left flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Download Website .ZIP (Netlify)</span>
+                </a>
+              </li>
+              <li>
+                <a
                   href="/qubits-solar.apk"
                   download="qubits-solar.apk"
                   className="text-orange-600 hover:text-orange-700 font-bold transition-colors text-left flex items-center gap-1"

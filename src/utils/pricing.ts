@@ -8,6 +8,8 @@ import {
   WaterAvailability,
 } from '../types/solar';
 
+import { LOGO_QUBITS_SOLAR, LOGO_QUBITS_CONSULTANCY } from './logos';
+
 export const COMPANY_DETAILS = {
   name: 'Qubits Solar',
   parentCompany: 'Qubits Consultancy',
@@ -25,8 +27,8 @@ export const COMPANY_DETAILS = {
   parentWebsite: 'qubitsconsultancy.in',
   parentWebsiteUrl: 'https://qubitsconsultancy.in',
   hours: 'Monday – Sunday: 7:00 AM – 7:00 PM',
-  logoSolar: '/assets/aistudio/IMG-20260920-WA0009_bc02a149.jpg',
-  logoConsultancy: '/assets/aistudio/_9F00FF_9e509ae2.png',
+  logoSolar: LOGO_QUBITS_SOLAR,
+  logoConsultancy: LOGO_QUBITS_CONSULTANCY,
 };
 
 /**

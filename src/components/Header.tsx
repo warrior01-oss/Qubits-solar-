@@ -306,6 +306,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, booking
           Contact Us
         </button>
         <a
+          href="/qubits-solar-dist.zip"
+          download="qubits-solar-dist.zip"
+          className="whitespace-nowrap px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-300 flex items-center gap-1 shadow-xs"
+          title="Download complete website zip for Netlify drag-and-drop hosting"
+        >
+          <Download className="w-3 h-3 text-emerald-600" />
+          <span>Website .ZIP (Netlify)</span>
+        </a>
+        <a
           href="/qubits-solar.apk"
           download="qubits-solar.apk"
           className="whitespace-nowrap px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold border border-orange-200 flex items-center gap-1"

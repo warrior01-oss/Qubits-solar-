@@ -64,6 +64,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           runtimeCaching: [
             {
@@ -102,9 +103,24 @@ export default defineConfig(() => {
         },
       }),
       {
-        name: 'serve-apk',
+        name: 'serve-downloads',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
+            if (req.url === '/qubits-solar-dist.zip' || req.url === '/dist.zip') {
+              const zipPath = path.resolve(__dirname, 'public/qubits-solar-dist.zip');
+              if (fs.existsSync(zipPath)) {
+                const stat = fs.statSync(zipPath);
+                res.writeHead(200, {
+                  'Content-Type': 'application/zip',
+                  'Content-Length': stat.size,
+                  'Content-Disposition': 'attachment; filename="qubits-solar-dist.zip"',
+                  'Access-Control-Allow-Origin': '*',
+                  'Cache-Control': 'no-cache',
+                });
+                fs.createReadStream(zipPath).pipe(res);
+                return;
+              }
+            }
             if (req.url === '/qubits-solar.apk') {
               const apkPath = path.resolve(__dirname, 'public/qubits-solar.apk');
               if (fs.existsSync(apkPath)) {
@@ -113,6 +129,7 @@ export default defineConfig(() => {
                   'Content-Type': 'application/vnd.android.package-archive',
                   'Content-Length': stat.size,
                   'Content-Disposition': 'attachment; filename="qubits-solar.apk"',
+                  'Access-Control-Allow-Origin': '*',
                 });
                 fs.createReadStream(apkPath).pipe(res);
                 return;
